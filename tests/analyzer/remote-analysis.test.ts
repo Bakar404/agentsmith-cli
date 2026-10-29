@@ -87,6 +87,21 @@ describe("RemoteAnalyzer correctness", () => {
     expect(selected).not.toContain("fixtures/commands/example.ts");
   });
 
+  it("fetches agent and contributor guides even when source files fill the budget", () => {
+    const selected = internals().selectPriorityFiles([
+      ...Array.from({ length: 40 }, (_, index) => file(`src/module-${index}.ts`)),
+      file("AGENTS.md"),
+      file("CLAUDE.md"),
+      file("tests/fixtures/repo/CONTRIBUTING.md"),
+      file("docs/CONTRIBUTING.md"),
+    ]);
+
+    expect(selected).toEqual(
+      expect.arrayContaining(["AGENTS.md", "CLAUDE.md", "docs/CONTRIBUTING.md"]),
+    );
+    expect(selected).not.toContain("tests/fixtures/repo/CONTRIBUTING.md");
+  });
+
   it("detects argparse entrypoints without dependency metadata", () => {
     const result = internals().detectCLI(
       [file("src/cli.py"), file("tests/commands/fake.py")],

@@ -188,6 +188,13 @@ export function isGeneratedRepositoryPath(filePath: string): boolean {
   );
 }
 
+/** Contributor and coding-agent guides that state a repository's own conventions. */
+export const AGENT_GUIDANCE_FILES: readonly string[] = ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"];
+
+export function isAgentGuidancePath(filePath: string): boolean {
+  return AGENT_GUIDANCE_FILES.includes(path.posix.basename(normalizeRepositoryPath(filePath)));
+}
+
 export function isTestOrFixturePath(filePath: string): boolean {
   const normalized = normalizeRepositoryPath(filePath).toLowerCase();
   const basename = path.posix.basename(normalized);

@@ -9,6 +9,7 @@ All notable changes to Agent Smith are documented here.
 - Optional AgentHub coordination for generated agents, including repository-scoped channels, run provenance, history, and diff commands.
 - ESLint flat configuration and a reproducible lint toolchain.
 - `AGENTSMITH_MODEL` environment variable to choose the Copilot model used for analysis.
+- Analysis context from a repository's `AGENTS.md`, `CLAUDE.md` and `CONTRIBUTING.md`, so generated skills carry the rules maintainers already wrote for contributors and coding agents. The prompts treat these files as evidence, not as instructions for the analysis model.
 
 ### Fixed
 

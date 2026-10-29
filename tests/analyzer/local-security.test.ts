@@ -7,6 +7,7 @@ import { analyzeCLIStructure } from "../../src/analyzer/cli.js";
 import {
   Analyzer,
   createLocalAnalysisSnapshot,
+  selectLocalAnalysisSamplePaths,
 } from "../../src/analyzer/local.js";
 import {
   createRepositorySnapshot,
@@ -438,5 +439,37 @@ describe("Analyzer file sampling", () => {
 
     expect(result.fallbackReason).toBeUndefined();
     expect(result.skills.map((skill) => skill.sourceDir)).toEqual(["src/api"]);
+  });
+
+  it("samples agent and contributor guides alongside config files", () => {
+    const entry = (relativePath: string, isConfig = false) => ({
+      path: relativePath,
+      relativePath,
+      extension: path.extname(relativePath),
+      size: 10,
+      isTest: false,
+      isConfig,
+    });
+    const scanResult: ScanResult = {
+      rootPath: "repo",
+      files: [
+        ...Array.from({ length: 20 }, (_, index) => entry(`packages/p${index}/package.json`, true)),
+        entry("src/index.ts"),
+        entry("docs/CONTRIBUTING.md"),
+        entry("AGENTS.md"),
+      ],
+      language: "TypeScript",
+      framework: null,
+      configFiles: [],
+      testFiles: [],
+      sourceDirectories: ["src"],
+      cliFramework: null,
+      cliEntryFiles: [],
+    };
+
+    const selected = selectLocalAnalysisSamplePaths(scanResult);
+
+    expect(selected.slice(0, 2)).toEqual(["AGENTS.md", "docs/CONTRIBUTING.md"]);
+    expect(selected).toHaveLength(20);
   });
 });

@@ -8,6 +8,7 @@ import { CopilotClient } from "@github/copilot-sdk";
 import path from "path";
 import {
   createRepositorySnapshot,
+  isAgentGuidancePath,
   isGeneratedRepositoryPath,
   isSensitiveRepositoryPath,
   normalizeRepositoryPath,
@@ -51,8 +52,9 @@ export function selectLocalAnalysisSamplePaths(
       !isGeneratedRepositoryPath(file.relativePath)
     )
     .sort((left, right) => {
-      if (left.isConfig && !right.isConfig) return -1;
-      if (!left.isConfig && right.isConfig) return 1;
+      const leftFirst = left.isConfig || isAgentGuidancePath(left.relativePath);
+      const rightFirst = right.isConfig || isAgentGuidancePath(right.relativePath);
+      if (leftFirst !== rightFirst) return leftFirst ? -1 : 1;
       const leftDepth = normalizeRepositoryPath(left.relativePath).split("/").length;
       const rightDepth = normalizeRepositoryPath(right.relativePath).split("/").length;
       return leftDepth - rightDepth ||
