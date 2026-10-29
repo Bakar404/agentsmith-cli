@@ -262,13 +262,18 @@ export class RemoteAnalyzer {
       const finalContent = responseContent || streamedContent;
 
       // Parse response
-      return this.buildResult(finalContent, repoInfo, language, framework, cli);
+      return this.buildResult(finalContent, repoInfo, language, framework, cli) ??
+        this.generateFallback(
+          repoInfo, language, framework, files, cli,
+          "the response was not valid analysis JSON",
+        );
 
     } catch (error) {
-      console.error(`  [SDK] Error: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      console.error(`  [SDK] Error: ${message}`);
       if (sessionId) await client.deleteSession(sessionId).catch(() => {});
       await client.stop().catch(() => {});
-      return this.generateFallback(repoInfo, language, framework, files, cli);
+      return this.generateFallback(repoInfo, language, framework, files, cli, message);
     } finally {
       clearAnalysisTimeout();
     }
@@ -319,21 +324,11 @@ export class RemoteAnalyzer {
     language: string,
     framework: string | undefined,
     cli?: AnalysisResult["cli"],
-  ): AnalysisResult {
+  ): AnalysisResult | null {
     const parsed = parseAnalysisResponse(response, () => null);
 
     if (parsed === null) {
-      // Will not happen in the fallback path, but this handles parse failure
-      return {
-        repoName: repo.repo,
-        skills: cli ? generateCLISkills(cli) : [],
-        agents: [],
-        tools: [],
-        hooks: generateDefaultHooks(language, false),
-        summary: "",
-        cli,
-        repo: { ...repo, language, framework },
-      };
+      return null;
     }
 
     const flatAgents = flattenAgents(parsed.agents);
@@ -358,7 +353,8 @@ export class RemoteAnalyzer {
     language: string,
     framework: string | undefined,
     files: GitHubFile[],
-    cli?: AnalysisResult["cli"],
+    cli: AnalysisResult["cli"] | undefined,
+    fallbackReason: string,
   ): AnalysisResult {
     // Detect source directories
     const srcDirs = new Set<string>();
@@ -394,6 +390,7 @@ export class RemoteAnalyzer {
       summary: `A ${language} repository${framework ? ` using ${framework}` : ""}.`,
       cli,
       repo: { ...repo, language, framework },
+      fallbackReason,
     };
   }
 }

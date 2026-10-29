@@ -1,6 +1,7 @@
 import { CopilotClient } from "@github/copilot-sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RemoteAnalyzer } from "../../src/analyzer/remote.js";
+import type { AnalysisResult } from "../../src/analyzer/types.js";
 import type { GitHubFile, GitHubRepo } from "../../src/github/index.js";
 
 type RemoteAnalyzerInternals = {
@@ -236,9 +237,50 @@ describe("RemoteAnalyzer correctness", () => {
     vi.spyOn(CopilotClient.prototype, "stop").mockResolvedValue();
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(analyzer.analyze()).resolves.toBeDefined();
+    await expect(analyzer.analyze()).resolves.toMatchObject({
+      fallbackReason: "send failed",
+    });
 
     expect(session.send).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("returns a flagged fallback instead of zero skills when the response is invalid", async () => {
+    const analyzer = new RemoteAnalyzer("test/repo", false, "0123456789abcdef", {
+      owner: "test",
+      repo: "repo",
+      defaultBranch: "main",
+    }) as unknown as { github: unknown; analyze(): Promise<AnalysisResult> };
+    analyzer.github = {
+      fullName: "test/repo",
+      getLicense: vi.fn().mockResolvedValue("MIT"),
+      getTree: vi.fn().mockResolvedValue([file("src/index.ts")]),
+      getFiles: vi.fn().mockResolvedValue(new Map()),
+      resolveRevision: vi.fn(),
+    };
+    type Emit = (event: { type: string; data: unknown }) => void;
+    let emit: Emit = () => {};
+    const session = {
+      sessionId: "session-1",
+      on: vi.fn((handler: Emit) => {
+        emit = handler;
+      }),
+      send: vi.fn(async () => {
+        emit({ type: "assistant.message", data: { content: '{"skills": "none"}' } });
+      }),
+      disconnect: vi.fn(),
+    };
+    vi.spyOn(CopilotClient.prototype, "start").mockResolvedValue();
+    vi.spyOn(CopilotClient.prototype, "createSession")
+      .mockResolvedValue(session as never);
+    vi.spyOn(CopilotClient.prototype, "deleteSession").mockResolvedValue();
+    vi.spyOn(CopilotClient.prototype, "stop").mockResolvedValue();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await analyzer.analyze();
+
+    expect(result.fallbackReason).toBe("the response was not valid analysis JSON");
+    expect(result.skills.map((skill) => skill.name)).toEqual(["src-patterns"]);
   });
 });

@@ -21,6 +21,7 @@ All notable changes to Agent Smith are documented here.
 - Avoided coordination-channel collisions while respecting AgentHub's 31-character limit.
 - Stopped requesting the hardcoded `gpt-5` model, which Copilot accounts may not offer; analysis uses Copilot's default model unless `AGENTSMITH_MODEL` is set.
 - Listed the allowed skill categories in the remote analysis prompt, and mapped unknown categories to `patterns` so one invalid value no longer discards the whole analysis.
+- Reported failed Copilot analysis as a failure: `assimilate` prints the error, says the output is generic defaults, exits with code 1, and no longer caches the fallback result. Remote runs whose response fails validation now get the heuristic fallback instead of zero skills.
 
 ## [0.4.0] — 2026-03-15
 

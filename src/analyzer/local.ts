@@ -119,10 +119,15 @@ export class Analyzer {
     try {
       await this.client.start();
     } catch (error) {
-      console.error("  [SDK] Failed to start client:", (error as Error).message);
+      const message = (error as Error).message;
+      console.error("  [SDK] Failed to start client:", message);
       console.error("  [SDK] Make sure Copilot CLI is installed and in PATH");
       console.error("  [SDK] Falling back to heuristic analysis...\n");
-      return this.generateFallbackAnalysis(analyzedScanResult, cli);
+      return this.generateFallbackAnalysis(
+        analyzedScanResult,
+        cli,
+        `could not start the Copilot client: ${message}`,
+      );
     }
 
     if (this.verbose) {
@@ -267,9 +272,10 @@ export class Analyzer {
       await session.disconnect();
       return result;
     } catch (error) {
-      console.error(`\n  [SDK] Error: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      console.error(`\n  [SDK] Error: ${message}`);
       console.error("  [SDK] Falling back to heuristic analysis...\n");
-      return this.generateFallbackAnalysis(analyzedScanResult, cli);
+      return this.generateFallbackAnalysis(analyzedScanResult, cli, message);
     } finally {
       if (this.client) {
         try {
@@ -309,7 +315,11 @@ export class Analyzer {
     const parsed = parseAnalysisResponse(response, () => null);
 
     if (parsed === null) {
-      return this.generateFallbackAnalysis(scanResult, cli);
+      return this.generateFallbackAnalysis(
+        scanResult,
+        cli,
+        "the response was not valid analysis JSON",
+      );
     }
 
     const flatAgents = flattenAgents(parsed.agents);
@@ -332,7 +342,8 @@ export class Analyzer {
 
   private generateFallbackAnalysis(
     scanResult: ScanResult,
-    cli?: AnalysisResult["cli"],
+    cli: AnalysisResult["cli"] | undefined,
+    fallbackReason: string,
   ): AnalysisResult {
     // Detect domains for hierarchical agent structure
     const domains = detectDomainBoundaries(scanResult.files, path.sep);
@@ -394,6 +405,7 @@ export class Analyzer {
       hooks,
       summary: `A ${scanResult.language} repository${scanResult.framework ? ` using ${scanResult.framework}` : ""} with ${domains.length} detected domains.`,
       cli,
+      fallbackReason,
     };
   }
 }
