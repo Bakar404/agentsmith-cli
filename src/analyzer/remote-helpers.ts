@@ -172,7 +172,7 @@ Look at directory structure and create sub-agents for major domains (cmd, api, i
 ## Return JSON (sub-agents as NESTED OBJECTS, not strings):
 {
   "skills": [
-    {"name": "skill-name", "description": "...", "sourceDir": "src/x", "patterns": ["pattern 1"], "triggers": ["keyword"], "category": "patterns", "examples": ["code example"]}
+    {"name": "skill-name", "description": "...", "sourceDir": "src/x", "patterns": ["pattern 1"], "triggers": ["keyword"], "category": "architecture|reliability|quality|security|patterns", "examples": ["code example"]}
   ],
   "agents": [
     {
