@@ -74,17 +74,18 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
  */
 export function renderDirectoryInstructionsFile(
   instruction: DirectoryInstruction,
-  existingContent?: string,
+  existingContent = "",
 ): string {
-  const frontmatter = applyToFrontmatter(instruction.applyTo);
-  if (existingContent === undefined) {
+  const existingFrontmatter = FRONTMATTER_PATTERN.exec(existingContent)?.[0];
+  const body = existingContent.slice(existingFrontmatter?.length ?? 0);
+  if (!body.trim()) {
+    let frontmatter = existingFrontmatter ?? applyToFrontmatter(instruction.applyTo);
+    // Frontmatter that ends the file can lack a newline after its closing `---`.
+    if (!frontmatter.endsWith("\n")) frontmatter += "\n";
     return `${frontmatter}\n${instruction.content}\n`;
   }
-  const existingFrontmatter = FRONTMATTER_PATTERN.exec(existingContent)?.[0];
-  const body = existingFrontmatter
-    ? existingContent.slice(existingFrontmatter.length)
-    : existingContent;
-  return (existingFrontmatter ?? `${frontmatter}\n`) + mergeWithExisting(body, instruction.content);
+  return (existingFrontmatter ?? `${applyToFrontmatter(instruction.applyTo)}\n`)
+    + mergeWithExisting(body, instruction.content);
 }
 
 const MANAGED_START = "<!-- agentsmith:managed -->";

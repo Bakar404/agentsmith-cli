@@ -98,6 +98,12 @@ describe("path-specific instructions", () => {
 
     const withoutFrontmatter = "<!-- agentsmith:managed -->\nold\n<!-- /agentsmith:managed -->\n";
     expect(renderDirectoryInstructionsFile(instruction, withoutFrontmatter)).toBe(fresh);
+
+    // Frontmatter alone, as stale cleanup leaves it or with no newline after the closing `---`.
+    const rescoped = fresh.replace('applyTo: "src/api/**"', 'applyTo: "src/**"');
+    for (const frontmatterOnly of ['---\napplyTo: "src/**"\n---\n', '---\napplyTo: "src/**"\n---']) {
+      expect(renderDirectoryInstructionsFile(instruction, frontmatterOnly)).toBe(rescoped);
+    }
   });
 
   it("removes only the managed block from a file that is no longer generated", () => {
