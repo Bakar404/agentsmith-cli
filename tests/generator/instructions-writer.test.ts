@@ -4,6 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import { Generator } from "../../src/generator/index.js";
 import {
+  buildCopilotInstructions,
   buildDirectoryInstructions,
   renderDirectoryInstructionsFile,
 } from "../../src/generator/instructions-writer.js";
@@ -78,5 +79,22 @@ describe("path-specific instructions", () => {
 
     const withoutFrontmatter = "<!-- agentsmith:managed -->\nold\n<!-- /agentsmith:managed -->\n";
     expect(renderDirectoryInstructionsFile(instruction, withoutFrontmatter)).toBe(fresh);
+  });
+});
+
+describe("copilot-instructions.md", () => {
+  it("lists each test command and testing pattern once", () => {
+    const unitTests = { ...skill("unit-tests", "tests"), category: "quality" as const };
+    const testTool = { name: "test", command: "npm test", description: "Run the test suite" };
+    const content = buildCopilotInstructions({
+      ...analysis([unitTests, { ...unitTests, name: "e2e-tests" }]),
+      tools: [testTool, testTool, testTool],
+    });
+
+    const testing = content.split("## Testing\n")[1].split("\n## ")[0];
+    expect(testing.trim().split("\n")).toEqual([
+      "- Run tests: `npm test`",
+      "- Follow unit-tests conventions",
+    ]);
   });
 });

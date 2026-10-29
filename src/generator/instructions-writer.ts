@@ -259,13 +259,14 @@ function collectStructure(skills: SkillDefinition[]): StructureEntry[] {
 }
 
 function collectTestingInfo(skills: SkillDefinition[], tools: ToolDefinition[]): string[] {
-  const info: string[] = [];
+  // Several agents often list the same test command, so keep each line once.
+  const info = new Set<string>();
 
   // Check tools for test commands
   for (const tool of tools) {
     const cmd = tool.command.toLowerCase();
     if (cmd.includes("test") || cmd.includes("jest") || cmd.includes("vitest") || cmd.includes("pytest")) {
-      info.push(`Run tests: \`${tool.command}\``);
+      info.add(`Run tests: \`${tool.command}\``);
     }
   }
 
@@ -273,14 +274,14 @@ function collectTestingInfo(skills: SkillDefinition[], tools: ToolDefinition[]):
   for (const skill of skills) {
     if (skill.category === "quality" || skill.name.includes("test")) {
       for (const pattern of skill.patterns) {
-        if (info.length < 8) {
-          info.push(pattern);
+        if (info.size < 8) {
+          info.add(pattern);
         }
       }
     }
   }
 
-  return info;
+  return Array.from(info);
 }
 
 function collectToolInfo(tools: ToolDefinition[]): ToolDefinition[] {
