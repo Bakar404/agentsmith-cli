@@ -27,6 +27,7 @@ All notable changes to Agent Smith are documented here.
 - Mapped each skill and agent `sourceDir` onto a folder that exists in the repository: a file maps to its folder and a missing folder maps to its nearest existing parent. A model answer such as `sourceDir: "config.ts"` no longer creates a `config.ts/` directory.
 - Wrote folder-specific instructions to `.github/instructions/agentsmith-<folder>.instructions.md` with an `applyTo` glob, which Copilot loads. Copilot never read the previous `<folder>/.copilot-instructions.md` files, so those can be deleted.
 - Listed each test command and testing pattern once in `copilot-instructions.md`; a command shared by several agents was repeated once per agent.
+- Stopped agent headings from repeating "Agent" when the agent name already ends in it: `api-agent` now gets `# Api Agent` instead of `# Api Agent Agent`.
 
 ## [0.4.0] — 2026-03-15
 
