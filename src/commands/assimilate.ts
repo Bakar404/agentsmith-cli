@@ -100,7 +100,7 @@ export async function assimilateCommand(
       return;
     }
 
-    console.log(chalk.green(`  ✓ ${license} - permissive license`));
+    console.log(chalk.green(`  ✓ ${license} - allowed license`));
 
     // Use the remote analyzer only after the license boundary has been checked.
     console.log(chalk.green("\n[ANALYZE]"), `Analyzing ${getRepoName(target)} via GitHub API...`);
@@ -202,7 +202,7 @@ async function assimilateLocal(target: string, options: AssimilateOptions): Prom
       return;
     }
 
-    console.log(chalk.green(`  ✓ ${license.name} - permissive license`));
+    console.log(chalk.green(`  ✓ ${license.name} - allowed license`));
 
     console.log(chalk.green("\n[SCAN]"), "Enumerating repository...");
 

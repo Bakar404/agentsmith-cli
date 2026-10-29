@@ -174,7 +174,7 @@ export function generateDefaultHooks(language: string, testFilesExist: boolean):
     hooks.push({
       name: "pre-commit-quality",
       event: "pre-commit",
-      description: "Run linting and type checking before commit",
+      description: "Run the lint and build scripts before commit",
       commands: ["npm run lint", "npm run build"],
     });
 

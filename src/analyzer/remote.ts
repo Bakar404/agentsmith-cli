@@ -177,7 +177,9 @@ export class RemoteAnalyzer {
       await client.start();
       const model = resolveAnalysisModel();
       if (this.verbose) {
-        console.log("  [SDK] Client started, status:", client.getStatus());
+        // A failed status call should not change the outcome of a verbose run.
+        const status = await client.getStatus().catch(() => undefined);
+        console.log("  [SDK] Client started, status:", status ?? "unavailable");
         console.log(`  [SDK] Creating session with model: ${model ?? "Copilot default"}...`);
       }
 
