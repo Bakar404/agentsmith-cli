@@ -181,6 +181,7 @@ export function isGeneratedRepositoryPath(filePath: string): boolean {
   return (
     segments.some((segment) => GENERATED_OR_VENDOR_SEGMENTS.has(segment)) ||
     /^\.github\/(?:agents|skills|copilot|hooks)(\/|$)/i.test(normalized) ||
+    /^\.github\/instructions\/agentsmith-[^/]+\.instructions\.md$/i.test(normalized) ||
     /(^|\/)skills-registry\.jsonl$/i.test(normalized) ||
     /(^|\/)\.copilot-instructions\.md$/i.test(normalized) ||
     /\.(?:generated|gen)\.[^/]+$/i.test(normalized)

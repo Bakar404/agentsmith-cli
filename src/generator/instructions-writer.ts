@@ -1,6 +1,7 @@
 /**
  * Instructions Writer - Copilot Instructions Generator
- * Generates .github/copilot-instructions.md from analysis results.
+ * Generates .github/copilot-instructions.md and path-specific
+ * .github/instructions/*.instructions.md files from analysis results.
  * "I'd like to share a revelation that I've had..."
  */
 
@@ -8,8 +9,16 @@ import type { AnalysisResult, SkillDefinition, ToolDefinition } from "../analyze
 
 export interface DirectoryInstruction {
   directory: string;
+  /** Repository-relative path of the path-specific instructions file. */
+  file: string;
+  /** Glob for the file's `applyTo` frontmatter. */
+  applyTo: string;
+  /** Managed block, without frontmatter. */
   content: string;
 }
+
+const MAX_INSTRUCTIONS_SLUG_LENGTH = 80;
+const FRONTMATTER_PATTERN = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/;
 
 export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryInstruction[] {
   const grouped = new Map<string, SkillDefinition[]>();
@@ -21,6 +30,7 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
     grouped.set(directory, list);
   }
 
+  const usedSlugs = new Set<string>();
   return Array.from(grouped.entries()).map(([directory, skills]) => {
     const patterns = Array.from(new Set(skills.flatMap((skill) => skill.patterns)));
     const antiPatterns = Array.from(new Set(skills.flatMap((skill) => skill.antiPatterns ?? [])));
@@ -46,8 +56,33 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
       );
     }
     sections.push("", "<!-- /agentsmith:managed -->");
-    return { directory, content: `${sections.join("\n")}\n` };
+    return {
+      directory,
+      file: `.github/instructions/agentsmith-${uniqueSlug(directory, usedSlugs)}.instructions.md`,
+      applyTo: toApplyToGlob(directory),
+      content: sections.join("\n"),
+    };
   });
+}
+
+/**
+ * Render a path-specific instructions file. Copilot reads `applyTo` only from
+ * frontmatter at the top of the file, so existing frontmatter (including user
+ * edits) stays first and only the managed block in the body is replaced.
+ */
+export function renderDirectoryInstructionsFile(
+  instruction: DirectoryInstruction,
+  existingContent?: string,
+): string {
+  const frontmatter = `---\napplyTo: "${instruction.applyTo}"\n---\n`;
+  if (existingContent === undefined) {
+    return `${frontmatter}\n${instruction.content}\n`;
+  }
+  const existingFrontmatter = FRONTMATTER_PATTERN.exec(existingContent)?.[0];
+  const body = existingFrontmatter
+    ? existingContent.slice(existingFrontmatter.length)
+    : existingContent;
+  return (existingFrontmatter ?? `${frontmatter}\n`) + mergeWithExisting(body, instruction.content);
 }
 
 const MANAGED_START = "<!-- agentsmith:managed -->";
@@ -148,6 +183,29 @@ export function mergeWithExisting(existingContent: string, managedBlock: string)
 }
 
 // --- Internal helpers ---
+
+/**
+ * Glob for a directory's `applyTo` frontmatter. Characters that globs or the
+ * comma-separated `applyTo` list treat specially become `?` (any one character),
+ * so folders such as Next.js `[slug]` or `(group)` routes still match.
+ */
+function toApplyToGlob(directory: string): string {
+  return `${directory.replace(/[\\*?[\]{}()!,#"|]/g, "?")}/**`;
+}
+
+function uniqueSlug(directory: string, used: Set<string>): string {
+  const base = directory
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, MAX_INSTRUCTIONS_SLUG_LENGTH)
+    .replace(/^-+|-+$/g, "") || "folder";
+  let slug = base;
+  for (let suffix = 2; used.has(slug); suffix += 1) {
+    slug = `${base}-${suffix}`;
+  }
+  used.add(slug);
+  return slug;
+}
 
 function detectLanguageFromSkills(skills: SkillDefinition[]): string {
   for (const skill of skills) {

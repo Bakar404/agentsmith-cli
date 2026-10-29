@@ -24,6 +24,7 @@ All notable changes to Agent Smith are documented here.
 - Reported failed Copilot analysis as a failure: `assimilate` prints the error, says the output is generic defaults, exits with code 1, and no longer caches the fallback result. Remote runs whose response fails validation now get the heuristic fallback instead of zero skills.
 - Detected Next.js in remote analysis when the config file is `next.config.ts`, `.cjs`, or `.mts`, and fell back to `package.json` dependencies (the same rules as local scans) when no framework config file is present.
 - Mapped each skill and agent `sourceDir` onto a folder that exists in the repository: a file maps to its folder and a missing folder maps to its nearest existing parent. A model answer such as `sourceDir: "config.ts"` no longer creates a `config.ts/` directory.
+- Wrote folder-specific instructions to `.github/instructions/agentsmith-<folder>.instructions.md` with an `applyTo` glob, which Copilot loads. Copilot never read the previous `<folder>/.copilot-instructions.md` files, so those can be deleted.
 
 ## [0.4.0] — 2026-03-15
 

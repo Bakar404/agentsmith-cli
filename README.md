@@ -87,6 +87,8 @@ The result is a Copilot team that can answer practical questions such as:
 │   ├── handoffs.json                 # Agent delegation map
 │   └── freshness.json                # Generated-knowledge fingerprints
 ├── copilot-instructions.md           # Repository-wide operating context
+├── instructions/
+│   └── agentsmith-<folder>.instructions.md  # Folder-specific context (applyTo)
 └── hooks/
     └── *.yaml                        # Generated lifecycle checks
 
@@ -155,7 +157,7 @@ Useful options:
 -v, --verbose           Show detailed analysis
 -o, --output <path>     Write generated assets elsewhere
 --no-cache              Disable analysis caching
---no-instructions       Skip copilot-instructions.md
+--no-instructions       Skip the Copilot instruction files
 --single-agent          Generate one combined agent
 --run-hooks             Run post-generation hooks created by this run
 --hub <url>             Enable optional AgentHub coordination

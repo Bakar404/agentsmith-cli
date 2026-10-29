@@ -9,6 +9,7 @@ import {
   buildCopilotInstructions,
   buildDirectoryInstructions,
   mergeWithExisting,
+  renderDirectoryInstructionsFile,
 } from "./instructions-writer.js";
 import { buildRootAgentMd, buildSubAgentMd } from "./agent-writer.js";
 import { buildHandoffGraph, serializeHandoffGraph } from "./handoff-writer.js";
@@ -183,26 +184,19 @@ export class Generator {
   ): Promise<string[]> {
     const generated: string[] = [];
     for (const instruction of buildDirectoryInstructions(analysis)) {
-      const directoryPath = path.resolve(this.rootPath, instruction.directory);
-      const relative = path.relative(this.rootPath, directoryPath);
-      if (relative.startsWith("..") || path.isAbsolute(relative)) continue;
-      const relativePath = path.posix.join(
-        instruction.directory.replace(/\\/g, "/"),
-        ".copilot-instructions.md",
-      );
-      let content = instruction.content;
+      let existing: string | undefined;
       if (!this.dryRun) {
         try {
-          content = mergeWithExisting(
-            await readContainedFile(await this.getContainedRoot(), this.absolute(relativePath)),
-            instruction.content,
+          existing = await readContainedFile(
+            await this.getContainedRoot(),
+            this.absolute(instruction.file),
           );
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
       }
-      await this.write(relativePath, content);
-      generated.push(relativePath);
+      await this.write(instruction.file, renderDirectoryInstructionsFile(instruction, existing));
+      generated.push(instruction.file);
     }
     return generated;
   }
