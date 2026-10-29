@@ -5,6 +5,7 @@
  * "I'd like to share a revelation that I've had..."
  */
 
+import crypto from "crypto";
 import type { AnalysisResult, SkillDefinition, ToolDefinition } from "../analyzer/types.js";
 
 export interface DirectoryInstruction {
@@ -30,7 +31,6 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
     grouped.set(directory, list);
   }
 
-  const usedSlugs = new Set<string>();
   return Array.from(grouped.entries()).flatMap(([directory, skills]) => {
     const applyTo = toApplyToGlob(directory);
     if (applyTo === undefined) return [];
@@ -60,7 +60,7 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
     sections.push("", "<!-- /agentsmith:managed -->");
     return [{
       directory,
-      file: `.github/instructions/agentsmith-${uniqueSlug(directory, usedSlugs)}.instructions.md`,
+      file: instructionsFile(directory),
       applyTo,
       content: sections.join("\n"),
     }];
@@ -205,18 +205,20 @@ function toApplyToGlob(directory: string): string | undefined {
   return `${directory.replace(/^\s|[[\]*?{}(),|#]/g, (char) => `[${char}]`)}/**`;
 }
 
-function uniqueSlug(directory: string, used: Set<string>): string {
-  const base = directory
+/**
+ * File name from the folder path alone: a readable slug plus a hash of the
+ * exact path. Folders whose slugs match, such as `app/(auth)` and `app/[auth]`,
+ * still get different files, and a file never moves to another folder when
+ * folders are added, removed or listed in a different order.
+ */
+function instructionsFile(directory: string): string {
+  const slug = directory
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .slice(0, MAX_INSTRUCTIONS_SLUG_LENGTH)
     .replace(/^-+|-+$/g, "") || "folder";
-  let slug = base;
-  for (let suffix = 2; used.has(slug); suffix += 1) {
-    slug = `${base}-${suffix}`;
-  }
-  used.add(slug);
-  return slug;
+  const hash = crypto.createHash("sha256").update(directory).digest("hex").slice(0, 12);
+  return `.github/instructions/agentsmith-${slug}-${hash}.instructions.md`;
 }
 
 function detectLanguageFromSkills(skills: SkillDefinition[]): string {

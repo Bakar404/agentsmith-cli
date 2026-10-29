@@ -88,7 +88,7 @@ The result is a Copilot team that can answer practical questions such as:
 │   └── freshness.json                # Generated-knowledge fingerprints
 ├── copilot-instructions.md           # Repository-wide operating context
 ├── instructions/
-│   └── agentsmith-<folder>.instructions.md  # Folder-specific context (applyTo)
+│   └── agentsmith-<folder>-<hash>.instructions.md  # Folder-specific context (applyTo)
 └── hooks/
     └── *.yaml                        # Generated lifecycle checks
 

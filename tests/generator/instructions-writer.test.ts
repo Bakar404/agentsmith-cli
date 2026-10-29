@@ -30,7 +30,7 @@ describe("path-specific instructions", () => {
   it("writes each file to .github/instructions instead of the folder itself", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentsmith-instructions-"));
     try {
-      const file = ".github/instructions/agentsmith-src-api.instructions.md";
+      const file = ".github/instructions/agentsmith-src-api-ad4d739d3c08.instructions.md";
       const result = await new Generator(root).generate(analysis([skill("api", "src/api")]));
 
       expect(result.files).toContain(file);
@@ -56,6 +56,22 @@ describe("path-specific instructions", () => {
       ["app/[auth]", "app/[[]auth[]]/**"],
       ["app/@modal", "app/@modal/**"],
     ]);
+  });
+
+  it("names each file from its folder path alone", () => {
+    const files = (directories: string[]) => Object.fromEntries(
+      buildDirectoryInstructions(analysis(directories.map((directory) => skill(directory, directory))))
+        .map(({ directory, file }) => [directory, file]),
+    );
+
+    // Each pair has the same slug, but every folder still gets its own file.
+    const all = files(["app/(auth)", "app/[auth]", "src/a-b", "src/a/b"]);
+    expect(new Set(Object.values(all)).size).toBe(4);
+    // A folder keeps its file whatever other folders exist and in any order.
+    expect(files(["src/a/b", "app/[auth]"])).toEqual({
+      "src/a/b": all["src/a/b"],
+      "app/[auth]": all["app/[auth]"],
+    });
   });
 
   it("keeps frontmatter first and preserves user edits when the managed block is refreshed", () => {
