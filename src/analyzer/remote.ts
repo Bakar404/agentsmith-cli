@@ -34,7 +34,10 @@ import {
   getRemoteSystemPrompt,
   selectRemotePriorityFiles,
 } from "./remote-helpers.js";
-import { createSecureAnalysisSessionConfig } from "./session-security.js";
+import {
+  createSecureAnalysisSessionConfig,
+  resolveAnalysisModel,
+} from "./session-security.js";
 
 // Files/dirs to ignore
 const IGNORE_PATTERNS = [
@@ -170,13 +173,14 @@ export class RemoteAnalyzer {
         console.log("  [SDK] Starting client...");
       }
       await client.start();
+      const model = resolveAnalysisModel();
       if (this.verbose) {
         console.log("  [SDK] Client started, status:", client.getStatus());
-        console.log("  [SDK] Creating session...");
+        console.log(`  [SDK] Creating session with model: ${model ?? "Copilot default"}...`);
       }
 
       const session = await client.createSession({
-        model: "gpt-5",
+        ...(model ? { model } : {}),
         streaming: true,
         ...createSecureAnalysisSessionConfig(this.getSystemPrompt()),
       });

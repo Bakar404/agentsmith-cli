@@ -32,7 +32,10 @@ import {
   generateCLISkills,
   mergeCLISkills,
 } from "./cli.js";
-import { createSecureAnalysisSessionConfig } from "./session-security.js";
+import {
+  createSecureAnalysisSessionConfig,
+  resolveAnalysisModel,
+} from "./session-security.js";
 
 const MAX_FILE_SAMPLES = 20;
 const MAX_SAMPLE_BYTES = 10_000;
@@ -127,8 +130,9 @@ export class Analyzer {
     }
 
     try {
+      const model = resolveAnalysisModel();
       if (this.verbose) {
-        console.log("  [SDK] Creating session with model: gpt-5...");
+        console.log(`  [SDK] Creating session with model: ${model ?? "Copilot default"}...`);
       }
 
       // Detect potential domain boundaries for system prompt
@@ -136,7 +140,7 @@ export class Analyzer {
 
       // Create a session with custom tools for analysis
       const session = await this.client.createSession({
-        model: "gpt-5",
+        ...(model ? { model } : {}),
         streaming: true,
         ...createSecureAnalysisSessionConfig(
           getSystemPrompt(analyzedScanResult.language, domains),

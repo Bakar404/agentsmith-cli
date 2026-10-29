@@ -336,6 +336,10 @@ Run any command with `--help` for its options.
 The Copilot SDK uses the authenticated GitHub CLI session. AgentHub is required
 only when its optional coordination features are enabled.
 
+Analysis uses Copilot's default model. To pick a specific model that your
+Copilot account offers, set `AGENTSMITH_MODEL` (for example,
+`AGENTSMITH_MODEL=gpt-5.6-sol`).
+
 ## License policy
 
 Agent Smith analyzes repositories only when it detects a supported open-source

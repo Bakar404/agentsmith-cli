@@ -8,6 +8,7 @@ All notable changes to Agent Smith are documented here.
 
 - Optional AgentHub coordination for generated agents, including repository-scoped channels, run provenance, history, and diff commands.
 - ESLint flat configuration and a reproducible lint toolchain.
+- `AGENTSMITH_MODEL` environment variable to choose the Copilot model used for analysis.
 
 ### Fixed
 
@@ -18,6 +19,7 @@ All notable changes to Agent Smith are documented here.
 - Prevented generated skill and recording paths from escaping their intended directories.
 - Kept optional AgentHub failures from blocking normal repository generation.
 - Avoided coordination-channel collisions while respecting AgentHub's 31-character limit.
+- Stopped requesting the hardcoded `gpt-5` model, which Copilot accounts may not offer; analysis uses Copilot's default model unless `AGENTSMITH_MODEL` is set.
 
 ## [0.4.0] — 2026-03-15
 

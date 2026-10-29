@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -17,6 +17,7 @@ async function temporaryDirectory(): Promise<string> {
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) =>
       fs.rm(directory, { recursive: true, force: true })),
@@ -24,6 +25,29 @@ afterEach(async () => {
 });
 
 describe("analysis cache freshness", () => {
+  it("changes the cache key when AGENTSMITH_MODEL selects another model", async () => {
+    const scanResult: ScanResult = {
+      rootPath: await temporaryDirectory(),
+      files: [],
+      language: "TypeScript",
+      framework: null,
+      configFiles: [],
+      testFiles: [],
+      sourceDirectories: [],
+      cliFramework: null,
+      cliEntryFiles: [],
+    };
+
+    vi.stubEnv("AGENTSMITH_MODEL", "");
+    const copilotDefault = await buildAnalysisCacheKey(scanResult);
+    vi.stubEnv("AGENTSMITH_MODEL", "model-a");
+    const modelA = await buildAnalysisCacheKey(scanResult);
+    vi.stubEnv("AGENTSMITH_MODEL", "model-b");
+    const modelB = await buildAnalysisCacheKey(scanResult);
+
+    expect(new Set([copilotDefault, modelA, modelB]).size).toBe(3);
+  });
+
   it("changes the cache key for a same-size content edit", async () => {
     const root = await temporaryDirectory();
     const filePath = path.join(root, "src.ts");

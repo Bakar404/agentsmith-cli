@@ -18,6 +18,7 @@ import {
   createLocalAnalysisSnapshot,
   RemoteAnalyzer,
 } from "../analyzer/index.js";
+import { resolveAnalysisModel } from "../analyzer/session-security.js";
 import { Generator } from "../generator/index.js";
 import { Registry } from "../registry/index.js";
 import { HookRunner } from "../hooks/index.js";
@@ -437,6 +438,7 @@ export async function buildAnalysisCacheKey(
     cliEntryFiles: scanResult.cliEntryFiles
       .map(normalizeRepositoryPath)
       .filter((file) => snapshotPaths.has(file)),
+    model: resolveAnalysisModel() ?? null,
   });
 }
 
