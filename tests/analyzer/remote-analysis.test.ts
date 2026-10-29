@@ -1,6 +1,7 @@
 import { CopilotClient } from "@github/copilot-sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RemoteAnalyzer } from "../../src/analyzer/remote.js";
+import { detectRemoteFramework } from "../../src/analyzer/remote-helpers.js";
 import type { AnalysisResult } from "../../src/analyzer/types.js";
 import type { GitHubFile, GitHubRepo } from "../../src/github/index.js";
 
@@ -88,6 +89,34 @@ describe("RemoteAnalyzer correctness", () => {
   it("lists the allowed skill categories in the analysis prompt", () => {
     expect(internals().buildPrompt([file("src/index.ts")], new Map(), "TypeScript"))
       .toContain('"category": "architecture|reliability|quality|security|patterns"');
+  });
+
+  it("detects Next.js from a TypeScript config file", () => {
+    expect(detectRemoteFramework([file("next.config.ts")])).toBe("Next.js");
+  });
+
+  it("detects the framework from the fetched package.json", async () => {
+    const analyzer = new RemoteAnalyzer("test/repo", false, "0123456789abcdef", {
+      owner: "test",
+      repo: "repo",
+      defaultBranch: "main",
+    }) as unknown as { github: unknown; analyze(): Promise<AnalysisResult> };
+    analyzer.github = {
+      fullName: "test/repo",
+      getLicense: vi.fn().mockResolvedValue("MIT"),
+      getTree: vi.fn().mockResolvedValue([file("package.json"), file("src/app/page.tsx")]),
+      getFiles: vi.fn().mockResolvedValue(new Map([
+        ["package.json", JSON.stringify({ dependencies: { next: "15.0.0" } })],
+      ])),
+      resolveRevision: vi.fn(),
+    };
+    vi.spyOn(CopilotClient.prototype, "start")
+      .mockRejectedValue(new Error("offline test"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await analyzer.analyze();
+
+    expect(result.repo?.framework).toBe("Next.js");
   });
 
   it("uses the supplied immutable revision for license, tree, and content reads", async () => {

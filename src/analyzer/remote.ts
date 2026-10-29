@@ -109,11 +109,6 @@ export class RemoteAnalyzer {
 
     // Detect language from file extensions
     const language = this.detectLanguage(files);
-    const framework = this.detectFramework(files);
-
-    if (this.verbose) {
-      console.log(`  [GH] Language: ${language}, Framework: ${framework || "none"}`);
-    }
 
     // Get priority files for analysis
     const priorityPaths = this.selectPriorityFiles(files);
@@ -123,6 +118,12 @@ export class RemoteAnalyzer {
     }
 
     const fileContents = await this.github.getFiles(priorityPaths, revision);
+    const framework = this.detectFramework(files, fileContents.get("package.json"));
+
+    if (this.verbose) {
+      console.log(`  [GH] Language: ${language}, Framework: ${framework || "none"}`);
+    }
+
     const preliminaryCLI = this.detectCLI(files, fileContents);
     const missingCLIPaths = selectCLIImplementationFiles(
       files.map((file) => file.path),
@@ -283,8 +284,11 @@ export class RemoteAnalyzer {
     return detectRemoteLanguage(files);
   }
 
-  private detectFramework(files: GitHubFile[]): string | undefined {
-    return detectRemoteFramework(files);
+  private detectFramework(
+    files: GitHubFile[],
+    packageJson?: string,
+  ): string | undefined {
+    return detectRemoteFramework(files, packageJson);
   }
 
   private detectCLI(

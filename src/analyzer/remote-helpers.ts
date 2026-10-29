@@ -1,5 +1,6 @@
 import type { GitHubFile } from "../github/index.js";
 import {
+  detectFrameworkFromPackageJson,
   isGeneratedRepositoryPath,
   isSensitiveRepositoryPath,
   isTestOrFixturePath,
@@ -58,15 +59,24 @@ export function detectRemoteLanguage(files: GitHubFile[]): string {
   return language;
 }
 
-export function detectRemoteFramework(files: GitHubFile[]): string | undefined {
+const NEXT_CONFIG_FILES = ["js", "mjs", "cjs", "ts", "mts"].map(
+  (extension) => `next.config.${extension}`,
+);
+
+export function detectRemoteFramework(
+  files: GitHubFile[],
+  packageJson?: string,
+): string | undefined {
   const paths = new Set(files.map((file) => file.path));
 
-  if (paths.has("next.config.js") || paths.has("next.config.mjs")) return "Next.js";
+  if (NEXT_CONFIG_FILES.some((name) => paths.has(name))) return "Next.js";
   if (paths.has("angular.json")) return "Angular";
   if (paths.has("vue.config.js")) return "Vue";
   if (paths.has("nuxt.config.ts") || paths.has("nuxt.config.js")) return "Nuxt";
 
-  return undefined;
+  return packageJson === undefined
+    ? undefined
+    : detectFrameworkFromPackageJson(packageJson);
 }
 
 export function selectRemotePriorityFiles(files: GitHubFile[]): string[] {
