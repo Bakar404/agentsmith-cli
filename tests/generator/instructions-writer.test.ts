@@ -104,45 +104,58 @@ describe("path-specific instructions", () => {
     const [instruction] = buildDirectoryInstructions(analysis([skill("api", "src/api")]));
     const generated = renderDirectoryInstructionsFile(instruction);
     const frontmatter = '---\napplyTo: "src/api/**"\n---\n';
+    const remove = (content: string) => removeManagedInstructions(content, instruction.applyTo);
 
     // Only the generated frontmatter would be left, so the file can be deleted.
-    expect(removeManagedInstructions(generated)).toBe("");
-    expect(removeManagedInstructions(`${generated}\n## Team notes\n- Keep handlers thin\n`))
+    expect(remove(generated)).toBe("");
+    expect(remove(generated.replace(/\n/g, "\r\n"))).toBe("");
+    expect(remove(`${generated}\n## Team notes\n- Keep handlers thin\n`))
       .toBe(`${frontmatter}\n## Team notes\n- Keep handlers thin\n`);
-    expect(removeManagedInstructions(generated.replace("<!--", "Read the API guide first.\n\n<!--")))
+    expect(remove(generated.replace("<!--", "Read the API guide first.\n\n<!--")))
       .toBe(`${frontmatter}\nRead the API guide first.\n`);
-    expect(removeManagedInstructions(generated.replace("---\n\n", 'excludeAgent: "code-review"\n---\n\n')))
+    expect(remove(generated.replace("---\n\n", 'excludeAgent: "code-review"\n---\n\n')))
       .toBe('---\napplyTo: "src/api/**"\nexcludeAgent: "code-review"\n---\n');
-    expect(removeManagedInstructions(`${frontmatter}\n## Team notes\n`)).toBeUndefined();
+    // An edited applyTo is a user change, so the file stays.
+    expect(remove(generated.replace("src/api/**", "src/**"))).toBe('---\napplyTo: "src/**"\n---\n');
+    expect(remove(`${frontmatter}\n## Team notes\n`)).toBeUndefined();
   });
 
-  it("cleans up files a later run no longer generates and keeps user notes", () => inTempRoot(async (root) => {
-    const skills = [skill("api", "src/api"), skill("web", "src/web"), skill("db", "src/db")];
-    const [api, web, db] = buildDirectoryInstructions(analysis(skills)).map(({ file }) => file);
+  it("cleans up files a later run no longer generates and keeps user edits", () => inTempRoot(async (root) => {
+    const skills = [
+      skill("api", "src/api"),
+      skill("web", "src/web"),
+      skill("db", "src/db"),
+      skill("jobs", "src/jobs"),
+    ];
+    const [api, web, db, jobs] = buildDirectoryInstructions(analysis(skills)).map(({ file }) => file);
     await new Generator(root).generate(analysis(skills));
     await fs.appendFile(path.join(root, web), "\n## Team notes\n- Keep handlers thin\n", "utf-8");
+    const jobsContent = await fs.readFile(path.join(root, jobs), "utf-8");
+    await fs.writeFile(path.join(root, jobs), jobsContent.replace("src/jobs/**", "src/**"), "utf-8");
 
     await new Generator(root).generate(analysis([skills[0]]));
 
     await expect(fs.access(path.join(root, db))).rejects.toMatchObject({ code: "ENOENT" });
     expect(await fs.readFile(path.join(root, web), "utf-8"))
       .toBe('---\napplyTo: "src/web/**"\n---\n\n## Team notes\n- Keep handlers thin\n');
-    expect(await trackedInstructions(root)).toEqual([api]);
+    expect(await fs.readFile(path.join(root, jobs), "utf-8")).toBe('---\napplyTo: "src/**"\n---\n');
+    expect(await trackedInstructions(root)).toEqual([{ file: api, applyTo: "src/api/**" }]);
   }));
 
   it("keeps tracking files through a --no-instructions run", () => inTempRoot(async (root) => {
     const skills = [skill("api", "src/api"), skill("db", "src/db")];
-    const files = buildDirectoryInstructions(analysis(skills)).map(({ file }) => file);
+    const tracked = buildDirectoryInstructions(analysis(skills))
+      .map(({ file, applyTo }) => ({ file, applyTo }));
     await new Generator(root).generate(analysis(skills));
 
     await new Generator(root, false, false, true).generate(analysis([]));
-    for (const file of files) {
+    for (const { file } of tracked) {
       await expect(fs.access(path.join(root, file))).resolves.toBeUndefined();
     }
-    expect(await trackedInstructions(root)).toEqual(files);
+    expect(await trackedInstructions(root)).toEqual(tracked);
 
     await new Generator(root).generate(analysis([skills[0]]));
-    await expect(fs.access(path.join(root, files[1]))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.access(path.join(root, tracked[1].file))).rejects.toMatchObject({ code: "ENOENT" });
   }));
 });
 

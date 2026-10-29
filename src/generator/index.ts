@@ -54,10 +54,11 @@ export interface GeneratorResult {
   files: string[];
   hookFiles: string[];
   /**
-   * Path-specific instruction files Agent Smith maintains. A `--no-instructions`
-   * run keeps the previous run's list so a later run can still clean them up.
+   * Path-specific instruction files Agent Smith maintains, with the `applyTo`
+   * glob each was generated with. A `--no-instructions` run keeps the previous
+   * run's list so a later run can still clean them up.
    */
-  instructionFiles: string[];
+  instructionFiles: Array<{ file: string; applyTo: string }>;
   agentFiles: Array<{ name: string; file: string; isSubAgent: boolean }>;
   skillFiles: Array<{ name: string; file: string }>;
 }
@@ -117,7 +118,7 @@ export class Generator {
     if (!this.noInstructions) {
       result.files.push(await this.generateCopilotInstructions(analysis));
       result.instructionFiles = await this.generateDirectoryInstructions(analysis);
-      result.files.push(...result.instructionFiles);
+      result.files.push(...result.instructionFiles.map(({ file }) => file));
     } else {
       result.instructionFiles = previousInstructionFiles(previous);
     }
@@ -192,8 +193,8 @@ export class Generator {
 
   private async generateDirectoryInstructions(
     analysis: AnalysisResult,
-  ): Promise<string[]> {
-    const generated: string[] = [];
+  ): Promise<GeneratorResult["instructionFiles"]> {
+    const generated: GeneratorResult["instructionFiles"] = [];
     for (const instruction of buildDirectoryInstructions(analysis)) {
       let existing: string | undefined;
       if (!this.dryRun) {
@@ -207,7 +208,7 @@ export class Generator {
         }
       }
       await this.write(instruction.file, renderDirectoryInstructionsFile(instruction, existing));
-      generated.push(instruction.file);
+      generated.push({ file: instruction.file, applyTo: instruction.applyTo });
     }
     return generated;
   }
@@ -258,7 +259,7 @@ export class Generator {
       ...result.agentFiles.map((agent) => agent.file),
       ...result.skillFiles.map((skill) => skill.file),
       ...result.hookFiles,
-      ...result.instructionFiles,
+      ...result.instructionFiles.map(({ file }) => file),
       ...(currentHandoff ? [currentHandoff] : []),
     ].map((file) => this.pathKey(file)));
 
@@ -277,12 +278,12 @@ export class Generator {
     for (const stale of previousInstructionFiles(previous)) {
       let canonical: string;
       try {
-        canonical = this.assertManagedPath(stale, "instructions");
+        canonical = this.assertManagedPath(stale.file, "instructions");
       } catch {
         continue;
       }
       if (!currentFiles.has(this.pathKey(canonical))) {
-        await this.removeStaleInstructions(canonical);
+        await this.removeStaleInstructions(canonical, stale.applyTo);
       }
     }
   }
@@ -326,12 +327,12 @@ export class Generator {
     }
   }
 
-  private async removeStaleInstructions(relativePath: string): Promise<void> {
+  private async removeStaleInstructions(relativePath: string, applyTo: string): Promise<void> {
     const root = await this.getContainedRoot();
     const absolutePath = this.absolute(relativePath);
     try {
       const content = await readContainedFile(root, absolutePath);
-      const remaining = removeManagedInstructions(content);
+      const remaining = removeManagedInstructions(content, applyTo);
       if (remaining === undefined) return;
       if (remaining === "") {
         await removeContainedExistingFile(root, absolutePath, digestManagedContent(content));

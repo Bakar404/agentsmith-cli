@@ -192,7 +192,8 @@ agentsmith refresh .
 freshness fingerprints. It also removes stale Agent Smith-owned agents, skills,
 hooks, and handoffs that are no longer part of the generated plan while leaving
 user-owned files alone. From a stale path-specific instructions file it removes
-only the managed block, so notes added outside the block stay.
+only the managed block, so notes added outside the block and frontmatter edits,
+such as a changed `applyTo`, stay.
 
 ### 4. Search and validate
 

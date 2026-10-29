@@ -20,7 +20,6 @@ export interface DirectoryInstruction {
 
 const MAX_INSTRUCTIONS_SLUG_LENGTH = 80;
 const FRONTMATTER_PATTERN = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/;
-const GENERATED_FRONTMATTER_PATTERN = /^---\r?\napplyTo: "[^"\r\n]*"\r?\n---[ \t]*(?:\r?\n)?$/;
 
 export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryInstruction[] {
   const grouped = new Map<string, SkillDefinition[]>();
@@ -77,7 +76,7 @@ export function renderDirectoryInstructionsFile(
   instruction: DirectoryInstruction,
   existingContent?: string,
 ): string {
-  const frontmatter = `---\napplyTo: "${instruction.applyTo}"\n---\n`;
+  const frontmatter = applyToFrontmatter(instruction.applyTo);
   if (existingContent === undefined) {
     return `${frontmatter}\n${instruction.content}\n`;
   }
@@ -188,11 +187,11 @@ export function mergeWithExisting(existingContent: string, managedBlock: string)
 /**
  * Content to keep in a path-specific instructions file that is no longer
  * generated: the file without its managed block, so user notes and frontmatter
- * edits stay. Returns "" when nothing but the generated `applyTo` frontmatter
- * would be left, meaning the file can be deleted, and undefined when the file
- * has no managed block.
+ * edits, including a changed `applyTo`, stay. Returns "" when nothing would be
+ * left but the frontmatter generated with `applyTo`, meaning the file can be
+ * deleted, and undefined when the file has no managed block.
  */
-export function removeManagedInstructions(content: string): string | undefined {
+export function removeManagedInstructions(content: string, applyTo: string): string | undefined {
   const frontmatter = FRONTMATTER_PATTERN.exec(content)?.[0] ?? "";
   const body = content.slice(frontmatter.length);
   const startIdx = body.indexOf(MANAGED_START);
@@ -203,11 +202,20 @@ export function removeManagedInstructions(content: string): string | undefined {
     .map((text) => text.replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd())
     .filter(Boolean)
     .join("\n\n");
-  if (!notes && (!frontmatter || GENERATED_FRONTMATTER_PATTERN.test(frontmatter))) return "";
+  if (!notes && (!frontmatter || isGeneratedFrontmatter(frontmatter, applyTo))) return "";
   return `${[frontmatter.trimEnd(), notes].filter(Boolean).join("\n\n")}\n`;
 }
 
 // --- Internal helpers ---
+
+function applyToFrontmatter(applyTo: string): string {
+  return `---\napplyTo: "${applyTo}"\n---\n`;
+}
+
+/** Whether frontmatter is exactly what Agent Smith wrote for `applyTo`, line endings aside. */
+function isGeneratedFrontmatter(frontmatter: string, applyTo: string): boolean {
+  return frontmatter.replace(/\r\n/g, "\n").trimEnd() === applyToFrontmatter(applyTo).trimEnd();
+}
 
 /**
  * Glob for a directory's `applyTo` frontmatter that matches only that folder.

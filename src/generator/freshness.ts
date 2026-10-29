@@ -27,6 +27,11 @@ const SkillFileSchema = z.object({
   file: z.string().min(1),
 });
 
+const InstructionFileSchema = z.object({
+  file: z.string().min(1),
+  applyTo: z.string().min(1),
+});
+
 const FreshnessSchema = z.object({
   schemaVersion: z.literal(3),
   ownership: z.object({
@@ -40,7 +45,7 @@ const FreshnessSchema = z.object({
   generatedHooks: z.array(z.string()),
   generatedHandoffFile: z.string().optional(),
   // Optional so metadata written before instruction files were tracked still parses.
-  generatedInstructions: z.array(z.string()).optional(),
+  generatedInstructions: z.array(InstructionFileSchema).optional(),
   generatedDigests: z.record(DigestSchema),
 }).strict().superRefine((metadata, context) => {
   const files = [
@@ -92,7 +97,9 @@ export function previousManagedHandoff(metadata?: FreshnessMetadata): string | u
   return metadata?.generatedHandoffFile;
 }
 
-export function previousInstructionFiles(metadata?: FreshnessMetadata): string[] {
+export function previousInstructionFiles(
+  metadata?: FreshnessMetadata,
+): GeneratorResult["instructionFiles"] {
   return metadata?.generatedInstructions ?? [];
 }
 
