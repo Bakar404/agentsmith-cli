@@ -36,6 +36,7 @@ import {
   createSecureAnalysisSessionConfig,
   resolveAnalysisModel,
 } from "./session-security.js";
+import { mapSourceDirsToRepository } from "./source-dirs.js";
 
 const MAX_FILE_SAMPLES = 20;
 const MAX_SAMPLE_BYTES = 10_000;
@@ -322,16 +323,20 @@ export class Analyzer {
       );
     }
 
-    const flatAgents = flattenAgents(parsed.agents);
+    const { skills, agents } = mapSourceDirsToRepository(
+      parsed.skills as SkillDefinition[],
+      flattenAgents(parsed.agents),
+      scanResult.files.map((file) => file.relativePath),
+    );
 
     return {
       repoName: path.basename(scanResult.rootPath),
       skills: mergeCLISkills(
-        parsed.skills as SkillDefinition[],
+        skills,
         cli ? generateCLISkills(cli) : [],
       ),
-      agents: flatAgents,
-      tools: extractAllTools(flatAgents),
+      agents,
+      tools: extractAllTools(agents),
       hooks: parsed.hooks.length > 0
         ? (parsed.hooks as AnalysisResult["hooks"])
         : generateDefaultHooks(scanResult.language, scanResult.testFiles.length > 0),

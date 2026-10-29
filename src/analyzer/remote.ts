@@ -38,6 +38,7 @@ import {
   createSecureAnalysisSessionConfig,
   resolveAnalysisModel,
 } from "./session-security.js";
+import { mapSourceDirsToRepository } from "./source-dirs.js";
 
 // Files/dirs to ignore
 const IGNORE_PATTERNS = [
@@ -263,7 +264,7 @@ export class RemoteAnalyzer {
       const finalContent = responseContent || streamedContent;
 
       // Parse response
-      return this.buildResult(finalContent, repoInfo, language, framework, cli) ??
+      return this.buildResult(finalContent, repoInfo, language, framework, tree, cli) ??
         this.generateFallback(
           repoInfo, language, framework, files, cli,
           "the response was not valid analysis JSON",
@@ -327,6 +328,7 @@ export class RemoteAnalyzer {
     repo: { owner: string; repo: string; license?: string },
     language: string,
     framework: string | undefined,
+    tree: GitHubFile[],
     cli?: AnalysisResult["cli"],
   ): AnalysisResult | null {
     const parsed = parseAnalysisResponse(response, () => null);
@@ -335,16 +337,20 @@ export class RemoteAnalyzer {
       return null;
     }
 
-    const flatAgents = flattenAgents(parsed.agents);
+    const { skills, agents } = mapSourceDirsToRepository(
+      parsed.skills as SkillDefinition[],
+      flattenAgents(parsed.agents),
+      tree.filter((entry) => entry.type === "file").map((entry) => entry.path),
+    );
 
     return {
       repoName: repo.repo,
       skills: mergeCLISkills(
-        parsed.skills as SkillDefinition[],
+        skills,
         cli ? generateCLISkills(cli) : [],
       ),
-      agents: flatAgents,
-      tools: extractAllTools(flatAgents),
+      agents,
+      tools: extractAllTools(agents),
       hooks: generateDefaultHooks(language, false),
       summary: parsed.summary,
       cli,

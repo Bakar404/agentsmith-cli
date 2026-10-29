@@ -28,6 +28,45 @@ function internals(): RemoteAnalyzerInternals {
   return new RemoteAnalyzer("test/repo") as unknown as RemoteAnalyzerInternals;
 }
 
+/** Run a remote analysis where the Copilot session replies with `content`. */
+async function analyzeResponse(
+  content: string,
+  tree: GitHubFile[] = [file("src/index.ts")],
+): Promise<AnalysisResult> {
+  const analyzer = new RemoteAnalyzer("test/repo", false, "0123456789abcdef", {
+    owner: "test",
+    repo: "repo",
+    defaultBranch: "main",
+  }) as unknown as { github: unknown; analyze(): Promise<AnalysisResult> };
+  analyzer.github = {
+    fullName: "test/repo",
+    getLicense: vi.fn().mockResolvedValue("MIT"),
+    getTree: vi.fn().mockResolvedValue(tree),
+    getFiles: vi.fn().mockResolvedValue(new Map()),
+    resolveRevision: vi.fn(),
+  };
+  type Emit = (event: { type: string; data: unknown }) => void;
+  let emit: Emit = () => {};
+  const session = {
+    sessionId: "session-1",
+    on: vi.fn((handler: Emit) => {
+      emit = handler;
+    }),
+    send: vi.fn(async () => {
+      emit({ type: "assistant.message", data: { content } });
+    }),
+    disconnect: vi.fn(),
+  };
+  vi.spyOn(CopilotClient.prototype, "start").mockResolvedValue();
+  vi.spyOn(CopilotClient.prototype, "createSession")
+    .mockResolvedValue(session as never);
+  vi.spyOn(CopilotClient.prototype, "deleteSession").mockResolvedValue();
+  vi.spyOn(CopilotClient.prototype, "stop").mockResolvedValue();
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  return analyzer.analyze();
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -275,41 +314,23 @@ describe("RemoteAnalyzer correctness", () => {
   });
 
   it("returns a flagged fallback instead of zero skills when the response is invalid", async () => {
-    const analyzer = new RemoteAnalyzer("test/repo", false, "0123456789abcdef", {
-      owner: "test",
-      repo: "repo",
-      defaultBranch: "main",
-    }) as unknown as { github: unknown; analyze(): Promise<AnalysisResult> };
-    analyzer.github = {
-      fullName: "test/repo",
-      getLicense: vi.fn().mockResolvedValue("MIT"),
-      getTree: vi.fn().mockResolvedValue([file("src/index.ts")]),
-      getFiles: vi.fn().mockResolvedValue(new Map()),
-      resolveRevision: vi.fn(),
-    };
-    type Emit = (event: { type: string; data: unknown }) => void;
-    let emit: Emit = () => {};
-    const session = {
-      sessionId: "session-1",
-      on: vi.fn((handler: Emit) => {
-        emit = handler;
-      }),
-      send: vi.fn(async () => {
-        emit({ type: "assistant.message", data: { content: '{"skills": "none"}' } });
-      }),
-      disconnect: vi.fn(),
-    };
-    vi.spyOn(CopilotClient.prototype, "start").mockResolvedValue();
-    vi.spyOn(CopilotClient.prototype, "createSession")
-      .mockResolvedValue(session as never);
-    vi.spyOn(CopilotClient.prototype, "deleteSession").mockResolvedValue();
-    vi.spyOn(CopilotClient.prototype, "stop").mockResolvedValue();
-    vi.spyOn(console, "log").mockImplementation(() => {});
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const result = await analyzer.analyze();
+    const result = await analyzeResponse('{"skills": "none"}');
 
     expect(result.fallbackReason).toBe("the response was not valid analysis JSON");
     expect(result.skills.map((skill) => skill.name)).toEqual(["src-patterns"]);
+  });
+
+  it("maps skill and agent sourceDir values to folders in the repository", async () => {
+    const result = await analyzeResponse(
+      JSON.stringify({
+        skills: [{ name: "config", description: "Config", sourceDir: "config.ts" }],
+        agents: [{ name: "api", description: "API", sourceDir: "src/api/routes" }],
+      }),
+      [file("config.ts"), file("src/api/index.ts")],
+    );
+
+    expect(result.fallbackReason).toBeUndefined();
+    expect(result.skills.map((skill) => skill.sourceDir)).toEqual([""]);
+    expect(result.agents.map((agent) => agent.sourceDir)).toEqual(["src/api"]);
   });
 });

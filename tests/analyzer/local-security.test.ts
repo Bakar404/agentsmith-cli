@@ -385,4 +385,58 @@ describe("Analyzer file sampling", () => {
     expect(session.disconnect).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("maps skill sourceDir values to folders in the scanned repository", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentsmith-local-sourcedir-"));
+    temporaryDirectories.push(root);
+    const relativePath = path.join("src", "api", "index.ts");
+    await fs.mkdir(path.join(root, "src", "api"), { recursive: true });
+    await fs.writeFile(path.join(root, relativePath), "export {};");
+    let listener: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined;
+    const session = {
+      sessionId: "session-1",
+      on: vi.fn((callback) => {
+        listener = callback;
+      }),
+      send: vi.fn(async () => {
+        listener?.({
+          type: "assistant.message",
+          data: {
+            content: JSON.stringify({
+              skills: [{ name: "api", description: "API", sourceDir: "src/api/index.ts" }],
+            }),
+          },
+        });
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(CopilotClient.prototype, "start").mockResolvedValue();
+    vi.spyOn(CopilotClient.prototype, "createSession")
+      .mockResolvedValue(session as never);
+    vi.spyOn(CopilotClient.prototype, "deleteSession").mockResolvedValue();
+    vi.spyOn(CopilotClient.prototype, "stop").mockResolvedValue();
+    const scanResult: ScanResult = {
+      rootPath: root,
+      files: [{
+        path: path.join(root, relativePath),
+        relativePath,
+        extension: ".ts",
+        size: 10,
+        isTest: false,
+        isConfig: false,
+      }],
+      language: "TypeScript",
+      framework: null,
+      configFiles: [],
+      testFiles: [],
+      sourceDirectories: ["src"],
+      cliFramework: null,
+      cliEntryFiles: [],
+    };
+
+    const result = await new Analyzer().analyze(scanResult);
+
+    expect(result.fallbackReason).toBeUndefined();
+    expect(result.skills.map((skill) => skill.sourceDir)).toEqual(["src/api"]);
+  });
 });
