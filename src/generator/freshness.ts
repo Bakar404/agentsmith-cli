@@ -39,6 +39,8 @@ const FreshnessSchema = z.object({
   generatedSkills: z.array(SkillFileSchema),
   generatedHooks: z.array(z.string()),
   generatedHandoffFile: z.string().optional(),
+  // Optional so metadata written before instruction files were tracked still parses.
+  generatedInstructions: z.array(z.string()).optional(),
   generatedDigests: z.record(DigestSchema),
 }).strict().superRefine((metadata, context) => {
   const files = [
@@ -88,6 +90,10 @@ export function previousManagedAgentFiles(metadata?: FreshnessMetadata): string[
 
 export function previousManagedHandoff(metadata?: FreshnessMetadata): string | undefined {
   return metadata?.generatedHandoffFile;
+}
+
+export function previousInstructionFiles(metadata?: FreshnessMetadata): string[] {
+  return metadata?.generatedInstructions ?? [];
 }
 
 export function previousManagedFiles(
@@ -141,6 +147,7 @@ export function serializeFreshness(
     generatedSkills: result.skillFiles,
     generatedHooks: result.hookFiles,
     generatedHandoffFile: handoffFile,
+    generatedInstructions: result.instructionFiles,
     generatedDigests: digests,
   });
   return `${JSON.stringify(metadata, null, 2)}\n`;

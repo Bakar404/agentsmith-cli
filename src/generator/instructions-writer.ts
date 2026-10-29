@@ -20,6 +20,7 @@ export interface DirectoryInstruction {
 
 const MAX_INSTRUCTIONS_SLUG_LENGTH = 80;
 const FRONTMATTER_PATTERN = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/;
+const GENERATED_FRONTMATTER_PATTERN = /^---\r?\napplyTo: "[^"\r\n]*"\r?\n---[ \t]*(?:\r?\n)?$/;
 
 export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryInstruction[] {
   const grouped = new Map<string, SkillDefinition[]>();
@@ -182,6 +183,28 @@ export function mergeWithExisting(existingContent: string, managedBlock: string)
 
   // No markers found - prepend managed block, keep existing content after
   return managedBlock + "\n\n" + existingContent;
+}
+
+/**
+ * Content to keep in a path-specific instructions file that is no longer
+ * generated: the file without its managed block, so user notes and frontmatter
+ * edits stay. Returns "" when nothing but the generated `applyTo` frontmatter
+ * would be left, meaning the file can be deleted, and undefined when the file
+ * has no managed block.
+ */
+export function removeManagedInstructions(content: string): string | undefined {
+  const frontmatter = FRONTMATTER_PATTERN.exec(content)?.[0] ?? "";
+  const body = content.slice(frontmatter.length);
+  const startIdx = body.indexOf(MANAGED_START);
+  const endIdx = body.indexOf(MANAGED_END, startIdx);
+  if (startIdx === -1 || endIdx === -1) return undefined;
+
+  const notes = [body.slice(0, startIdx), body.slice(endIdx + MANAGED_END.length)]
+    .map((text) => text.replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd())
+    .filter(Boolean)
+    .join("\n\n");
+  if (!notes && (!frontmatter || GENERATED_FRONTMATTER_PATTERN.test(frontmatter))) return "";
+  return `${[frontmatter.trimEnd(), notes].filter(Boolean).join("\n\n")}\n`;
 }
 
 // --- Internal helpers ---

@@ -191,7 +191,8 @@ agentsmith refresh .
 `refresh` bypasses the analysis cache, regenerates the agent system, and updates
 freshness fingerprints. It also removes stale Agent Smith-owned agents, skills,
 hooks, and handoffs that are no longer part of the generated plan while leaving
-user-owned files alone.
+user-owned files alone. From a stale path-specific instructions file it removes
+only the managed block, so notes added outside the block stay.
 
 ### 4. Search and validate
 

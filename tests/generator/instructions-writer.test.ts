@@ -6,6 +6,7 @@ import { Generator } from "../../src/generator/index.js";
 import {
   buildCopilotInstructions,
   buildDirectoryInstructions,
+  removeManagedInstructions,
   renderDirectoryInstructionsFile,
 } from "../../src/generator/instructions-writer.js";
 import type { AnalysisResult, SkillDefinition } from "../../src/analyzer/types.js";
@@ -26,21 +27,30 @@ function analysis(skills: SkillDefinition[]): AnalysisResult {
   return { repoName: "demo", skills, agents: [], tools: [], hooks: [], summary: "" };
 }
 
-describe("path-specific instructions", () => {
-  it("writes each file to .github/instructions instead of the folder itself", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentsmith-instructions-"));
-    try {
-      const file = ".github/instructions/agentsmith-src-api-ad4d739d3c08.instructions.md";
-      const result = await new Generator(root).generate(analysis([skill("api", "src/api")]));
+async function inTempRoot(test: (root: string) => Promise<void>): Promise<void> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentsmith-instructions-"));
+  try {
+    await test(root);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
 
-      expect(result.files).toContain(file);
-      expect(await fs.readFile(path.join(root, file), "utf-8")).toContain('applyTo: "src/api/**"');
-      await expect(fs.access(path.join(root, "src/api/.copilot-instructions.md")))
-        .rejects.toMatchObject({ code: "ENOENT" });
-    } finally {
-      await fs.rm(root, { recursive: true, force: true });
-    }
-  });
+async function trackedInstructions(root: string): Promise<unknown> {
+  const freshness = await fs.readFile(path.join(root, ".github/copilot/freshness.json"), "utf-8");
+  return JSON.parse(freshness).generatedInstructions;
+}
+
+describe("path-specific instructions", () => {
+  it("writes each file to .github/instructions instead of the folder itself", () => inTempRoot(async (root) => {
+    const file = ".github/instructions/agentsmith-src-api-ad4d739d3c08.instructions.md";
+    const result = await new Generator(root).generate(analysis([skill("api", "src/api")]));
+
+    expect(result.files).toContain(file);
+    expect(await fs.readFile(path.join(root, file), "utf-8")).toContain('applyTo: "src/api/**"');
+    await expect(fs.access(path.join(root, "src/api/.copilot-instructions.md")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  }));
 
   it("gives each folder an applyTo glob that matches only its literal name", () => {
     const instructions = buildDirectoryInstructions(analysis([
@@ -89,6 +99,51 @@ describe("path-specific instructions", () => {
     const withoutFrontmatter = "<!-- agentsmith:managed -->\nold\n<!-- /agentsmith:managed -->\n";
     expect(renderDirectoryInstructionsFile(instruction, withoutFrontmatter)).toBe(fresh);
   });
+
+  it("removes only the managed block from a file that is no longer generated", () => {
+    const [instruction] = buildDirectoryInstructions(analysis([skill("api", "src/api")]));
+    const generated = renderDirectoryInstructionsFile(instruction);
+    const frontmatter = '---\napplyTo: "src/api/**"\n---\n';
+
+    // Only the generated frontmatter would be left, so the file can be deleted.
+    expect(removeManagedInstructions(generated)).toBe("");
+    expect(removeManagedInstructions(`${generated}\n## Team notes\n- Keep handlers thin\n`))
+      .toBe(`${frontmatter}\n## Team notes\n- Keep handlers thin\n`);
+    expect(removeManagedInstructions(generated.replace("<!--", "Read the API guide first.\n\n<!--")))
+      .toBe(`${frontmatter}\nRead the API guide first.\n`);
+    expect(removeManagedInstructions(generated.replace("---\n\n", 'excludeAgent: "code-review"\n---\n\n')))
+      .toBe('---\napplyTo: "src/api/**"\nexcludeAgent: "code-review"\n---\n');
+    expect(removeManagedInstructions(`${frontmatter}\n## Team notes\n`)).toBeUndefined();
+  });
+
+  it("cleans up files a later run no longer generates and keeps user notes", () => inTempRoot(async (root) => {
+    const skills = [skill("api", "src/api"), skill("web", "src/web"), skill("db", "src/db")];
+    const [api, web, db] = buildDirectoryInstructions(analysis(skills)).map(({ file }) => file);
+    await new Generator(root).generate(analysis(skills));
+    await fs.appendFile(path.join(root, web), "\n## Team notes\n- Keep handlers thin\n", "utf-8");
+
+    await new Generator(root).generate(analysis([skills[0]]));
+
+    await expect(fs.access(path.join(root, db))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await fs.readFile(path.join(root, web), "utf-8"))
+      .toBe('---\napplyTo: "src/web/**"\n---\n\n## Team notes\n- Keep handlers thin\n');
+    expect(await trackedInstructions(root)).toEqual([api]);
+  }));
+
+  it("keeps tracking files through a --no-instructions run", () => inTempRoot(async (root) => {
+    const skills = [skill("api", "src/api"), skill("db", "src/db")];
+    const files = buildDirectoryInstructions(analysis(skills)).map(({ file }) => file);
+    await new Generator(root).generate(analysis(skills));
+
+    await new Generator(root, false, false, true).generate(analysis([]));
+    for (const file of files) {
+      await expect(fs.access(path.join(root, file))).resolves.toBeUndefined();
+    }
+    expect(await trackedInstructions(root)).toEqual(files);
+
+    await new Generator(root).generate(analysis([skills[0]]));
+    await expect(fs.access(path.join(root, files[1]))).rejects.toMatchObject({ code: "ENOENT" });
+  }));
 });
 
 describe("copilot-instructions.md", () => {
