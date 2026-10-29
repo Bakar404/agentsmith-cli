@@ -31,7 +31,9 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
   }
 
   const usedSlugs = new Set<string>();
-  return Array.from(grouped.entries()).map(([directory, skills]) => {
+  return Array.from(grouped.entries()).flatMap(([directory, skills]) => {
+    const applyTo = toApplyToGlob(directory);
+    if (applyTo === undefined) return [];
     const patterns = Array.from(new Set(skills.flatMap((skill) => skill.patterns)));
     const antiPatterns = Array.from(new Set(skills.flatMap((skill) => skill.antiPatterns ?? [])));
     const references = Array.from(new Set(skills.flatMap((skill) => skill.codebaseReferences ?? [])));
@@ -56,12 +58,12 @@ export function buildDirectoryInstructions(analysis: AnalysisResult): DirectoryI
       );
     }
     sections.push("", "<!-- /agentsmith:managed -->");
-    return {
+    return [{
       directory,
       file: `.github/instructions/agentsmith-${uniqueSlug(directory, usedSlugs)}.instructions.md`,
-      applyTo: toApplyToGlob(directory),
+      applyTo,
       content: sections.join("\n"),
-    };
+    }];
   });
 }
 
@@ -185,12 +187,22 @@ export function mergeWithExisting(existingContent: string, managedBlock: string)
 // --- Internal helpers ---
 
 /**
- * Glob for a directory's `applyTo` frontmatter. Characters that globs or the
- * comma-separated `applyTo` list treat specially become `?` (any one character),
- * so folders such as Next.js `[slug]` or `(group)` routes still match.
+ * Glob for a directory's `applyTo` frontmatter that matches only that folder.
+ * Each glob metacharacter becomes a one-character class such as `[(]`, which
+ * VS Code, minimatch, picomatch and globset all read literally, so `app/(auth)`
+ * and `app/[auth]` get different globs. Returns undefined for the rare names no
+ * such glob can express; those folders get no file rather than a wrong scope.
  */
-function toApplyToGlob(directory: string): string {
-  return `${directory.replace(/[\\*?[\]{}()!,#"|]/g, "?")}/**`;
+function toApplyToGlob(directory: string): string | undefined {
+  if (
+    directory.startsWith("!") // negates the whole pattern, and `[!]` opens a negated class
+    || /["\p{Cc}]/u.test(directory) // cannot go inside the double-quoted YAML value
+    || /\{.*,.*\}/.test(directory) // minimatch expands braces before it reads classes
+  ) {
+    return undefined;
+  }
+  // VS Code trims each pattern, so a leading space is escaped as well.
+  return `${directory.replace(/^\s|[[\]*?{}(),|#]/g, (char) => `[${char}]`)}/**`;
 }
 
 function uniqueSlug(directory: string, used: Set<string>): string {

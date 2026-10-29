@@ -42,26 +42,19 @@ describe("path-specific instructions", () => {
     }
   });
 
-  it("gives each folder its own file and an applyTo glob that matches its literal name", () => {
+  it("gives each folder an applyTo glob that matches only its literal name", () => {
     const instructions = buildDirectoryInstructions(analysis([
-      skill("blog-route", "app/blog/[slug]"),
-      skill("blog-folder", "app/blog/slug"),
-      skill("marketing", "app/(marketing),old"),
+      skill("auth-group", "app/(auth)"),
+      skill("auth-route", "app/[auth]"),
+      skill("modal", "app/@modal"),
+      skill("drafts", "!drafts"),
     ]));
 
-    expect(instructions.map(({ file, applyTo }) => ({ file, applyTo }))).toEqual([
-      {
-        file: ".github/instructions/agentsmith-app-blog-slug.instructions.md",
-        applyTo: "app/blog/?slug?/**",
-      },
-      {
-        file: ".github/instructions/agentsmith-app-blog-slug-2.instructions.md",
-        applyTo: "app/blog/slug/**",
-      },
-      {
-        file: ".github/instructions/agentsmith-app-marketing-old.instructions.md",
-        applyTo: "app/?marketing??old/**",
-      },
+    // `!drafts` gets no file: a leading `!` negates the whole glob.
+    expect(instructions.map(({ directory, applyTo }) => [directory, applyTo])).toEqual([
+      ["app/(auth)", "app/[(]auth[)]/**"],
+      ["app/[auth]", "app/[[]auth[]]/**"],
+      ["app/@modal", "app/@modal/**"],
     ]);
   });
 
