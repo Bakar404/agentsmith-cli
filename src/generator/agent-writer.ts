@@ -66,7 +66,8 @@ export function buildRootAgentMd(
   if (subAgents.length > 0) {
     const delegationEntries = subAgents.map(sa => {
       const triggerList = sa.triggers.length > 0 ? sa.triggers.join(", ") : "general";
-      return `- **@${sa.name}** — ${sa.description}. Triggers: ${triggerList}`;
+      const summary = sa.description.trim().replace(/\.+$/, "");
+      return `- **@${sa.name}** — ${summary}. Triggers: ${triggerList}`;
     }).join("\n");
 
     delegationSection = `## Agent Delegation

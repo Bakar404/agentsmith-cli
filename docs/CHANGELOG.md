@@ -28,6 +28,7 @@ All notable changes to Agent Smith are documented here.
 - Wrote folder-specific instructions to `.github/instructions/agentsmith-<folder>.instructions.md` with an `applyTo` glob, which Copilot loads. Copilot never read the previous `<folder>/.copilot-instructions.md` files, so those can be deleted.
 - Listed each test command and testing pattern once in `copilot-instructions.md`; a command shared by several agents was repeated once per agent.
 - Stopped agent headings from repeating "Agent" when the agent name already ends in it: `api-agent` now gets `# Api Agent` instead of `# Api Agent Agent`.
+- Removed the double period before "Triggers:" in the root agent's delegation list when a sub-agent description already ends in a period.
 - Described the default JavaScript/TypeScript pre-commit hook as running the lint and build scripts, which is what it runs, instead of "type checking".
 - Printed the Copilot CLI status in verbose remote runs instead of `Promise { <pending> }`.
 - Labeled an accepted repository license as "allowed" rather than "permissive", because the allow-list includes copyleft licenses such as GPL-3.0 and AGPL-3.0.

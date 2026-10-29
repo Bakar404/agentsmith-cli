@@ -39,3 +39,16 @@ describe("agent headings", () => {
     expect(heading(buildRootAgentMd(analysis, "demo-root", helpers))).toBe("# Demo Root Agent");
   });
 });
+
+describe("root agent delegation", () => {
+  it("puts one period between a sub-agent description and its triggers", () => {
+    const agents = [
+      { ...apiAgent, description: "Owns the API routes.", triggers: ["api"] },
+      { ...apiAgent, name: "ui-agent", description: "Owns the UI" },
+    ];
+    const content = buildRootAgentMd({ ...analysis, agents }, "demo-root", helpers);
+
+    expect(content).toContain("- **@api-agent** — Owns the API routes. Triggers: api");
+    expect(content).toContain("- **@ui-agent** — Owns the UI. Triggers: general");
+  });
+});
