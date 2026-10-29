@@ -31,6 +31,7 @@ All notable changes to Agent Smith are documented here.
 - Described the default JavaScript/TypeScript pre-commit hook as running the lint and build scripts, which is what it runs, instead of "type checking".
 - Printed the Copilot CLI status in verbose remote runs instead of `Promise { <pending> }`.
 - Labeled an accepted repository license as "allowed" rather than "permissive", because the allow-list includes copyleft licenses such as GPL-3.0 and AGPL-3.0.
+- Made the local analysis cache key independent of the order the scanner lists files in. The order changes between runs, so an unchanged repository usually got a new key and was analyzed again instead of using the cache.
 
 ## [0.4.0] — 2026-03-15
 

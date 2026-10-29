@@ -48,6 +48,39 @@ describe("analysis cache freshness", () => {
     expect(new Set([copilotDefault, modelA, modelB]).size).toBe(3);
   });
 
+  it("keeps the cache key when the scanner lists files in another order", async () => {
+    const root = await temporaryDirectory();
+    const names = ["a.test.ts", "b.test.ts", "a.config.ts", "b.config.ts"];
+    for (const name of names) {
+      await fs.writeFile(path.join(root, name), name, "utf-8");
+    }
+    const scanResultInOrder = (order: (list: string[]) => string[]): ScanResult => ({
+      rootPath: root,
+      files: order(names).map((name) => ({
+        path: path.join(root, name),
+        relativePath: name,
+        extension: ".ts",
+        size: name.length,
+        isTest: name.includes(".test."),
+        isConfig: name.includes(".config."),
+      })),
+      language: "TypeScript",
+      framework: null,
+      configFiles: order(["a.config.ts", "b.config.ts"]),
+      testFiles: order(["a.test.ts", "b.test.ts"]),
+      sourceDirectories: order(["lib", "src"]),
+      cliFramework: null,
+      cliEntryFiles: [],
+    });
+
+    const forward = await buildAnalysisCacheKey(scanResultInOrder((list) => list));
+    const reversed = await buildAnalysisCacheKey(
+      scanResultInOrder((list) => [...list].reverse()),
+    );
+
+    expect(reversed).toBe(forward);
+  });
+
   it("changes the cache key for a same-size content edit", async () => {
     const root = await temporaryDirectory();
     const filePath = path.join(root, "src.ts");

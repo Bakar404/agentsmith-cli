@@ -417,6 +417,11 @@ export async function buildAnalysisCacheKey(
   }
   files.sort(([left], [right]) => left.localeCompare(right));
   const snapshotPaths = new Set(files.map(([relativePath]) => relativePath));
+  const byPath = (left: string, right: string) => left.localeCompare(right);
+  const keyPaths = (paths: readonly string[]) => paths
+    .map(normalizeRepositoryPath)
+    .filter((file) => snapshotPaths.has(file))
+    .sort(byPath);
   const analyzedFiles = scanResult.files
     .map((file) => ({
       relativePath: normalizeRepositoryPath(file.relativePath),
@@ -424,7 +429,8 @@ export async function buildAnalysisCacheKey(
       isTest: file.isTest,
       isConfig: file.isConfig,
     }))
-    .filter((file) => snapshotPaths.has(file.relativePath));
+    .filter((file) => snapshotPaths.has(file.relativePath))
+    .sort((left, right) => byPath(left.relativePath, right.relativePath));
 
   return stableCacheKey({
     schema: 5,
@@ -433,17 +439,11 @@ export async function buildAnalysisCacheKey(
     analyzedFiles,
     language: scanResult.language,
     framework: scanResult.framework,
-    configFiles: scanResult.configFiles
-      .map(normalizeRepositoryPath)
-      .filter((file) => snapshotPaths.has(file)),
-    testFiles: scanResult.testFiles
-      .map(normalizeRepositoryPath)
-      .filter((file) => snapshotPaths.has(file)),
-    sourceDirectories: scanResult.sourceDirectories,
+    configFiles: keyPaths(scanResult.configFiles),
+    testFiles: keyPaths(scanResult.testFiles),
+    sourceDirectories: [...scanResult.sourceDirectories].sort(byPath),
     cliFramework: scanResult.cliFramework,
-    cliEntryFiles: scanResult.cliEntryFiles
-      .map(normalizeRepositoryPath)
-      .filter((file) => snapshotPaths.has(file)),
+    cliEntryFiles: keyPaths(scanResult.cliEntryFiles),
     model: resolveAnalysisModel() ?? null,
   });
 }
